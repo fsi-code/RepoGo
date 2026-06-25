@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>clipdev UI — Centre de Contrôle & Obsidian</title>
+    
+    <!-- Tailwind CSS pour un design d'enfer -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
+    
+    <!-- Alpine.js pour la réactivité locale et la persistance -->
+    <script src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+        body { font-family: 'JetBrains+Mono', monospace; }
+        [x-cloak] { display: none !important; }
+        
+        /* Scrollbars élégantes et discrètes */
+        .dark ::-webkit-scrollbar { width: 5px; height: 5px; }
+        .dark ::-webkit-scrollbar-track { background: #09090b; }
+        .dark ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+        
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #f4f4f5; }
+        ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+    </style>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
+</head>
+<body class="h-full flex flex-col overflow-hidden select-none transition-colors duration-200 bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100" 
+      x-data="{ 
+        darkMode: $persist(true), 
+        currentWorkdir: '/users/dev/clipdev',
+        obsidianMode: $persist('append'), // 'append' ou 'new'
+        obsidianStatus: 'Synchronisé ✅',
+        triggerSync() {
+            this.obsidianStatus = 'Enregistrement... ⏳';
+            setTimeout(() => { this.obsidianStatus = 'Synchronisé ✅'; }, 800);
+        }
+      }"
+      :class="{ 'dark': darkMode }">
+
+    <!-- HEADER -->
+    <header class="h-14 border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/50 px-4 flex items-center justify-between shrink-0 transition-colors">
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2 text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-200">
+                <svg class="w-4 h-4 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <span>clipdev UI — <span class="text-indigo-600 dark:text-indigo-400">localhost:8080</span></span>
+            </div>
+            <div class="flex items-center space-x-1.5 bg-emerald-100/80 border border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800/60 px-2 py-0.5 rounded-full">
+                <span class="w-1.5 h-1.5 bg-emerald-500 dark:bg-emerald-400 rounded-full animate-pulse"></span>
+                <span class="text-[10px] text-emerald-700 dark:text-emerald-400 uppercase font-bold tracking-wider">daemon actif</span>
+            </div>
+        </div>
+        
+        <!-- THÈME & ARRET -->
+        <div class="flex items-center space-x-2">
+            <!-- Bascule Jour / Nuit -->
+            <button @click="darkMode = !darkMode" class="p-1.5 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 rounded border border-zinc-200 dark:border-zinc-800 transition-all">
+                <svg x-show="darkMode" class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" x-cloak>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707m2.828 9.9a5 5 0 117.071 0l-7.071-7.071z"/>
+                </svg>
+                <svg x-show="!darkMode" class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" x-cloak>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                </svg>
+            </button>
+
+            <!-- Arrêt d'urgence -->
+            <button hx-post="/api/stop" class="px-3 py-1.5 text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-red-500 hover:bg-red-50/50 dark:hover:bg-red-950/20 text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 rounded transition-all flex items-center space-x-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                <span>Stop</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- INTERFACE PRINCIPALE -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- PANNEAU GAUCHE : CONFIG OBSIDIAN & WORKDIR -->
+        <section class="w-72 border-r border-zinc-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 flex flex-col shrink-0 transition-colors">
+            
+            <!-- SECTION CONFIGURATION OBSIDIAN (Nouvel ajout) -->
+            <div class="border-b border-zinc-200 dark:border-zinc-900 bg-indigo-50/30 dark:bg-indigo-950/10 p-4 space-y-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-indigo-700 dark:text-indigo-400 flex items-center space-x-1.5 uppercase tracking-wider">
+                        <span>🟣 Cible Obsidian</span>
+                    </span>
+                    <span class="text-[9px] text-zinc-400 dark:text-zinc-500 font-mono" x-text="obsidianStatus"></span>
+                </div>
+
+                <!-- Formulaire auto-sauvegardé via HTMX -->
+                <form hx-post="/api/config/obsidian" hx-trigger="change, keyup delay:400ms" @change="triggerSync()" @keyup="triggerSync()" class="space-y-3">
+                    
+                    <!-- Nom du fichier MD -->
+                    <div>
+                        <label class="block text-[10px] text-zinc-500 dark:text-zinc-400 uppercase font-bold tracking-tight mb-1">Nom du fichier MD</label>
+                        <input type="text" name="obsidian_file" value="DevLog_Copilot.md" 
+                               class="w-full px-2.5 py-1.5 text-xs rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 font-mono text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 transition-all">
+                    </div>
+
+                    <!-- Titre de la section -->
+                    <div>
+                        <label class="block text-[10px] text-zinc-500 dark:text-zinc-400 uppercase font-bold tracking-tight mb-1">Titre par défaut</label>
+                        <input type="text" name="obsidian_title" value="Analyse & Correction de bug" 
+                               class="w-full px-2.5 py-1.5 text-xs rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 font-mono text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 transition-all">
+                    </div>
+
+                    <!-- Catégorie -->
+                    <div>
+                        <label class="block text-[10px] text-zinc-500 dark:text-zinc-400 uppercase font-bold tracking-tight mb-1">Catégorie (Metadata)</label>
+                        <select name="obsidian_category" 
+                                class="w-full px-2.5 py-1.5 text-xs rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 font-mono text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 transition-all">
+                            <option value="Dev">💻 Dev / Conception</option>
+                            <option value="Fix" selected>🔧 Fix / Debug</option>
+                            <option value="Refactor">♻️ Refactorisation</option>
+                            <option value="Architecture">📐 Architecture</option>
+                        </select>
+                    </div>
+
+                    <!-- Mode d'écriture (Append ou New File) -->
+                    <div>
+                        <label class="block text-[10px] text-zinc-500 dark:text-zinc-400 uppercase font-bold tracking-tight mb-1.5">Stratégie d'écriture</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="flex items-center justify-center p-1.5 rounded border text-xs cursor-pointer font-sans transition-all"
+                                   :class="obsidianMode === 'append' ? 'bg-indigo-500/10 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-zinc-400'"
+                                   @click="obsidianMode = 'append'">
+                                <input type="radio" name="obsidian_write_mode" value="append" class="hidden" checked>
+                                📝 Append
+                            </label>
+                            <label class="flex items-center justify-center p-1.5 rounded border text-xs cursor-pointer font-sans transition-all"
+                                   :class="obsidianMode === 'new' ? 'bg-indigo-500/10 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-zinc-400'"
+                                   @click="obsidianMode = 'new'">
+                                <input type="radio" name="obsidian_write_mode" value="new" class="hidden">
+                                🆕 New File
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- EXCLUSION & WORKDIR ARBORESCENCE -->
+            <div class="p-3 border-b border-zinc-200 dark:border-zinc-900 bg-zinc-50 dark:bg-zinc-900/20 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-bold uppercase">
+                <span class="flex items-center space-x-1.5">📂 Local Context</span>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-2 text-xs text-zinc-600 dark:text-zinc-400 font-mono space-y-1">
+                <div class="px-2 py-1 text-[10px] text-zinc-400 bg-zinc-100 dark:bg-zinc-900/50 rounded mb-2">
+                    Workdir: <span class="text-zinc-700 dark:text-zinc-300" x-text="currentWorkdir"></span>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-1 py-1 text-zinc-800 dark:text-zinc-300">📁 cmd/clipdevd</div>
+                    <div class="pl-4 border-l border-zinc-200 dark:border-zinc-800/60 ml-2">
+                        <button class="flex items-center space-x-1.5 py-0.5 hover:text-indigo-600 dark:hover:text-indigo-400">📄 main.go</button>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-1 py-1 text-zinc-800 dark:text-zinc-300">📁 internal</div>
+                    <div class="pl-4 border-l border-zinc-200 dark:border-zinc-800/60 ml-2 space-y-0.5">
+                        <button class="flex items-center space-x-1.5 py-0.5 hover:text-indigo-600 dark:hover:text-indigo-400">📄 watcher.go</button>
+                        <button class="flex items-center space-x-1.5 py-0.5 hover:text-indigo-600 dark:hover:text-indigo-400">📄 parser.go</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PANNEAU CENTRAL : FLUX D'ACTIVITÉ, MULTI-JSON PIPELINE -->
+        <section class="flex-1 bg-zinc-50 dark:bg-zinc-950 flex flex-col overflow-hidden border-r border-zinc-200 dark:border-zinc-900 transition-colors" hx-ext="sse" sse-connect="/api/stream">
+            <div class="p-3 border-b border-zinc-200 dark:border-zinc-900 bg-zinc-100/50 dark:bg-zinc-900/20 text-xs text-zinc-500 dark:text-zinc-400 font-bold tracking-wider uppercase flex justify-between items-center">
+                <span>Flux d'activité de l'IA & Validation</span>
+                <span class="text-[10px] text-indigo-600 dark:text-indigo-400">Obsidian Hook Actif</span>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                
+                <!-- MULTI-EXECUTION PIPELINE (SÉQUENÇAGE DES JSON NOYÉS DANS LE CLIPBOARD) -->
+                <div class="border border-indigo-200 dark:border-indigo-500/30 bg-white dark:bg-zinc-900/40 rounded-lg p-3 space-y-2 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div class="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider">Multi-JSON Pipeline détecté (3 actions)</div>
+                        <span class="text-[9px] bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 px-1.5 py-0.5 rounded font-bold uppercase font-mono">Séquentiel</span>
+                    </div>
+                    
+                    <div class="space-y-1.5 font-mono text-xs">
+                        <!-- Tâche 1 : Terminée -->
+                        <div class="flex items-center justify-between p-2 bg-zinc-100 dark:bg-zinc-950 rounded border border-zinc-200/40 dark:border-zinc-900">
+                            <span class="text-emerald-600 dark:text-emerald-400 font-bold">● [1/3] op: grep</span>
+                            <span class="text-[10px] text-zinc-500 font-sans">Succès (42ms)</span>
+                        </div>
+                        
+                        <!-- Tâche 2 : En cours d'attente (HITL) -->
+                        <div class="flex items-center justify-between p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-500/20 rounded animate-pulse">
+                            <span class="text-amber-700 dark:text-amber-400 font-bold">➔ [2/3] op: patch (parser.go)</span>
+                            <span class="px-1.5 py-0.5 rounded bg-amber-500 text-zinc-950 text-[9px] font-bold font-sans uppercase tracking-tight">Attente Validation</span>
+                        </div>
+                        
+                        <!-- Tâche 3 : En attente -->
+                        <div class="flex items-center justify-between p-2 opacity-40 rounded">
+                            <span class="text-zinc-500">○ [3/3] op: go tool (test)</span>
+                            <span class="text-[10px] font-sans">En attente</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BLOC HITL (Action requise active sur la tâche en cours) -->
+                <div class="border border-amber-300 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-950/10 rounded-lg p-4 space-y-3 shadow-sm" id="approval-card">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="px-1.5 py-0.5 rounded bg-amber-500 text-zinc-950 text-[10px] font-bold uppercase tracking-wider animate-pulse">Validation requise</span>
+                            <span class="text-xs font-semibold text-amber-700 dark:text-amber-400">op: patch</span>
+                        </div>
+                        <span class="text-[11px] font-medium text-amber-800 dark:text-amber-500 font-mono">internal/parser/parser.go</span>
+                    </div>
+
+                    <!-- Unified Diff -->
+                    <div class="bg-zinc-900 text-zinc-100 rounded border border-zinc-800 text-[11px] overflow-hidden font-mono shadow-md">
+                        <div class="bg-zinc-950 px-2 py-1 text-zinc-500 border-b border-zinc-800 text-[10px]">Unified Diff</div>
+                        <pre class="p-2 overflow-x-auto leading-relaxed"><span class="text-zinc-500">@@ -42,4 +42,5 @@</span>
+ <span class="text-red-400 bg-red-950/40">- return fmt.Errorf("invalid token")</span>
+ <span class="text-emerald-400 bg-emerald-950/40">+ log.Printf("[PARSER] token error intercepted")</span>
+ <span class="text-emerald-400 bg-emerald-950/40">+ return errors.New("parser: malformed payload structure")</span></pre>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-1">
+                        <div class="text-[10px] text-zinc-500">Auto-reject si aucune réponse dans <span class="text-amber-600 dark:text-amber-500 font-bold">18s</span></div>
+                        <div class="flex space-x-2">
+                            <button hx-post="/api/reject/c83f12" hx-target="#approval-card" hx-swap="outerHTML" class="px-2.5 py-1 text-xs border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded font-medium text-zinc-600 dark:text-zinc-400 transition-all">
+                                Rejeter
+                            </button>
+                            <button hx-post="/api/approve/c83f12" hx-target="#approval-card" hx-swap="outerHTML" class="px-3 py-1 text-xs bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded shadow-md transition-all">
+                                Autoriser (Entrée)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- JOURNAL HISTORIQUE & PIPELINE TRANSACTIONS -->
+                <div class="space-y-2 text-xs" sse-swap="clipboard-event">
+                    <!-- Note Obsidian générée en tâche de fond -->
+                    <div class="flex items-start space-x-2 font-mono p-2.5 rounded bg-indigo-50 dark:bg-indigo-950/10 border border-indigo-100 dark:border-indigo-900/30 shadow-sm transition-colors">
+                        <span class="text-indigo-400">[16:34:11]</span>
+                        <span class="text-indigo-600 dark:text-indigo-400 font-bold">🟣 OBSIDIAN</span>
+                        <span class="text-zinc-600 dark:text-zinc-300">Message archivé sous [[!info] 🤖 clipdev Session] dans <span class="underline">DevLog_Copilot.md</span></span>
+                    </div>
+
+                    <div class="flex items-start space-x-2 font-mono p-2.5 rounded bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-900 shadow-sm transition-colors">
+                        <span class="text-zinc-400 dark:text-zinc-600">[16:34:02]</span>
+                        <span class="text-emerald-600 dark:text-emerald-400 font-bold">✅ DONE</span>
+                        <span class="text-zinc-700 dark:text-zinc-300 font-semibold">op: grep</span>
+                        <span class="text-zinc-500 dark:text-zinc-400">pattern="func.*Handler" → found 4 locations (42ms)</span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- PANNEAU DROITE : COMMANDES RAPIDES -->
+        <section class="w-72 bg-zinc-100/60 dark:bg-zinc-900/20 flex flex-col shrink-0 border-l border-zinc-200 dark:border-none transition-colors">
+            <div class="p-3 border-b border-zinc-200 dark:border-zinc-900 bg-zinc-100 dark:bg-zinc-900/20 text-xs text-zinc-500 dark:text-zinc-400 font-bold tracking-wider uppercase flex items-center space-x-1.5">
+                <svg class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <span>Commandes rapides</span>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-3 space-y-2.5">
+                <!-- BOUTON GREP -->
+                <button hx-post="/api/quick/grep" class="w-full text-left p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 hover:border-indigo-400 dark:hover:border-indigo-500/50 group shadow-sm dark:shadow-none transition-all">
+                    <div class="flex items-center space-x-1.5 font-bold text-xs text-zinc-700 dark:text-zinc-300 group-hover:text-indigo-600 group-hover:dark:text-indigo-400">
+                        <span>🔍 grep</span>
+                    </div>
+                    <div class="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5 font-sans">Recherche ciblée dans les sources du projet.</div>
+                </button>
+
+                <!-- BOUTON TREE -->
+                <button hx-post="/api/quick/tree" class="w-full text-left p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 hover:border-indigo-400 dark:hover:border-indigo-500/50 group shadow-sm dark:shadow-none transition-all">
+                    <div class="flex items-center space-x-1.5 font-bold text-xs text-zinc-700 dark:text-zinc-300 group-hover:text-indigo-600 group-hover:dark:text-indigo-400">
+                        <span>🌲 tree</span>
+                    </div>
+                    <div class="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5 font-sans">Générer l'arborescence complète filtrée.</div>
+                </button>
+
+                <!-- BOUTON GIT STATUS -->
+                <button hx-post="/api/quick/git-status" class="w-full text-left p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 hover:border-indigo-400 dark:hover:border-indigo-500/50 group shadow-sm dark:shadow-none transition-all">
+                    <div class="flex items-center space-x-1.5 font-bold text-xs text-zinc-700 dark:text-zinc-300 group-hover:text-indigo-600 group-hover:dark:text-indigo-400">
+                        <span>🌿 git status</span>
+                    </div>
+                    <div class="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5 font-sans">Injecter l'état local du dépôt git.</div>
+                </button>
+            </div>
+            
+            <div class="p-3 border-t border-zinc-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 flex items-center justify-between transition-colors">
+                <span class="text-[10px] text-zinc-400 dark:text-zinc-600 font-sans font-medium">Contrôle : Semi-Automatique</span>
+                <div class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="h-6 border-t border-zinc-200 bg-white dark:border-zinc-900 dark:bg-zinc-950 px-3 flex items-center justify-between text-[10px] text-zinc-400 dark:text-zinc-500 shrink-0 transition-colors">
+        <div class="flex items-center space-x-4">
+            <span>Presse-papier: <span class="text-zinc-700 dark:text-zinc-300 font-medium">golang.design hook</span></span>
+            <span>Sandbox: <span class="text-emerald-600 dark:text-emerald-500 font-bold">Strict</span></span>
+        </div>
+        <div>
+            <span>v1.1.0-obsidian</span>
+        </div>
+    </footer>
+
+</body>
+</html>
