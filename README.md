@@ -34,3 +34,69 @@ ClipControl/
 Pour lancer :
 ./clipdevd --workdir /chemin/vers/projet --port 8080
 # Puis ouvrir http://localhost:8080
+
+
+Bonne démo. Ce JSON est parfaitement formé pour notre daemon. Voici exactement ce qui va se passer quand tu le copies :
+
+---
+1 — Parser détecte {"_clipdev": "1.0", ...} dans le clipboard → extrait la commande op: write
+
+2 — Dispatcher voit write dans require_approval → bloque l'exécution
+
+3 — UI reçoit l'événement SSE hitl-event et affiche :
+
+┌─ Validation requise ─────────────── main.go ─┐
+│                                               │
+│  Contenu (152 octets)                         │
+│  ┌─────────────────────────────────────────┐  │
+│  │ package main                            │  │
+│  │                                         │  │
+│  │ import (                                │  │
+│  │     "fmt"                               │  │
+│  │     "net/http"                          │  │
+│  │ )                                       │  │
+│  │ ...                                     │  │
+│  └─────────────────────────────────────────┘  │
+│                                               │
+│  Auto-reject dans 30s    [Rejeter] [Autoriser]│
+└───────────────────────────────────────────────┘
+
+4a — Si tu cliques Autoriser → ops.Write() crée main.go (mode create échoue si le fichier existe déjà), réponse dans clipboard :
+{
+"_clipdev": "1.0",
+"id": "w1",
+"ok": true,
+"op": "write",
+"result": "Written 152 bytes to main.go",
+"duration_ms": 2
+}
+
+4b — Si tu cliques Rejeter (ou timeout 30s) :
+{
+"_clipdev": "1.0",
+"id": "w1",
+"ok": false,
+"op": "write",
+"error": "operation rejected by user",
+"code": "REJECTED"
+}
+
+---
+Un seul point à surveiller pour ton test : le workdir configuré dans config.toml. Si tu lances le daemon depuis C:\MonProjet, main.go sera
+créé là. Si tu veux tester sans toucher à de vrais fichiers, ajoute "dry_run": true :
+
+{
+"_clipdev": "1.0",
+"op": "write",
+"id": "w1",
+"path": "main.go",
+"mode": "create",
+"content": "...",
+"dry_run": true
+}
+
+→ Pas de HITL, pas d'écriture, réponse immédiate : "Would write 152 bytes to main.go (mode: create)".
+
+
+
+
