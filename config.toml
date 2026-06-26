@@ -1,0 +1,22 @@
+workdir = "."
+port    = 8080
+
+[hitl]
+timeout         = "30s"
+auto_reject     = true
+require_approval = ["write", "patch"]
+
+[obsidian]
+vault_path  = "/home/patatoid/Documents/Obsidian Vault/"
+file        = "DevLog_Copilot.md"
+title       = "Analyse & Correction de bug"
+category    = "Fix"
+write_mode  = "append"
+
+[limits]
+max_output_bytes = 65536
+max_timeout      = "60s"
+
+[hmac]
+enabled = false
+key     = ""
