@@ -1,4 +1,3 @@
-Wow, tu as vraiment bien avancé ! C'est impressionnant pour une soirée de travail. Je vois plusieurs choses très intéressantes par rapport à ce qu'on avait esquissé ensemble.
 
 **Ce qui est particulièrement bien :**
 
